@@ -10,4 +10,34 @@
     <servlet-name>ReservationApi</servlet-name>
     <url-pattern>/ReservationApi</url-pattern>
   </servlet-mapping>
+  <servlet>
+    <description></description>
+    <display-name>User</display-name>
+    <servlet-name>User</servlet-name>
+    <servlet-class>com.app.model.User</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>User</servlet-name>
+    <url-pattern>/User</url-pattern>
+  </servlet-mapping>
+  <servlet>
+    <description></description>
+    <display-name>UserData</display-name>
+    <servlet-name>UserData</servlet-name>
+    <servlet-class>com.app.data.UserData</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>UserData</servlet-name>
+    <url-pattern>/UserData</url-pattern>
+  </servlet-mapping>
+  <servlet>
+    <description></description>
+    <display-name>SecurityUtil</display-name>
+    <servlet-name>SecurityUtil</servlet-name>
+    <servlet-class>com.app.security.SecurityUtil</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>SecurityUtil</servlet-name>
+    <url-pattern>/SecurityUtil</url-pattern>
+  </servlet-mapping>
 </web-app>
