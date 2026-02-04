@@ -3,24 +3,25 @@ package com.app.controller;
 import com.app.model.Salle;
 import com.app.security.SecurityUtil;
 
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
-
-
-import jakarta.servlet.ServletException;
-import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.*;
-
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.json.JSONObject;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @WebServlet("/api/salles")
 public class SalleApi extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
 
-    // 🔴 stockage temporaire (à la place de la DB)
+    // 🔴 stockage temporaire
     private static final List<Salle> salles = new ArrayList<>();
 
     static {
@@ -40,94 +41,88 @@ public class SalleApi extends HttpServlet {
         StringBuilder json = new StringBuilder("[");
         for (int i = 0; i < salles.size(); i++) {
             Salle s = salles.get(i);
-            json.append(
-                "{"
-                + "\"id\":" + s.getId() + ","
-                + "\"nom\":\"" + s.getNom() + "\","
-                + "\"capacite\":" + s.getCapacite()
-                + "}"
-            );
-            if (i < salles.size() - 1) {
-                json.append(",");
-            }
+            json.append(String.format(
+                "{\"id\":%d,\"nom\":\"%s\",\"capacite\":%d}",
+                s.getId(), s.getNom(), s.getCapacite()
+            ));
+            if (i < salles.size() - 1) json.append(",");
         }
         json.append("]");
 
         response.getWriter().print(json.toString());
     }
 
-    // ================= POST (ADD) =================
+    // ================= POST =================
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
         if (!SecurityUtil.checkAdmin(request, response)) return;
 
-        int id = Integer.parseInt(request.getParameter("id"));
-        String nom = request.getParameter("nom");
-        int capacite = Integer.parseInt(request.getParameter("capacite"));
-
-        salles.add(new Salle(id, nom, capacite));
-
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
-        response.getWriter().print(
-            "{"
-            + "\"success\": true,"
-            + "\"message\": \"Salle added successfully\""
-            + "}"
-        );
+        try {
+            JSONObject json = readJson(request);
+
+            int id = json.getInt("id");
+            String nom = json.getString("nom");
+            int capacite = json.getInt("capacite");
+
+            salles.add(new Salle(id, nom, capacite));
+
+            response.getWriter().print(
+                "{\"success\":true,\"message\":\"Salle added successfully\"}"
+            );
+
+        } catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            response.getWriter().print(
+                "{\"success\":false,\"message\":\"Invalid JSON body\"}"
+            );
+        }
     }
 
-    // ================= PUT (UPDATE) =================
+    // ================= PUT =================
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
         if (!SecurityUtil.checkAdmin(request, response)) return;
 
-        String body = getBody(request);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
 
-        // مثال body: id=1&nom=Salle+A&capacite=40
-        String[] params = body.split("&");
+        try {
+            JSONObject json = readJson(request);
 
-        int id = 0;
-        String nom = "";
-        int capacite = 0;
+            int id = json.getInt("id");
+            String nom = json.getString("nom");
+            int capacite = json.getInt("capacite");
 
-        for (String p : params) {
-            String[] kv = p.split("=");
-            if (kv[0].equals("id")) id = Integer.parseInt(kv[1]);
-            if (kv[0].equals("nom")) { nom = URLDecoder.decode(kv[1], StandardCharsets.UTF_8);
+            for (Salle s : salles) {
+                if (s.getId() == id) {
+                    s.setNom(nom);
+                    s.setCapacite(capacite);
+
+                    response.getWriter().print(
+                        "{\"success\":true,\"message\":\"Salle updated successfully\"}"
+                    );
+                    return;
+                }
             }
 
-            if (kv[0].equals("capacite")) capacite = Integer.parseInt(kv[1]);
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            response.getWriter().print(
+                "{\"success\":false,\"message\":\"Salle not found\"}"
+            );
+
+        } catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            response.getWriter().print(
+                "{\"success\":false,\"message\":\"Invalid JSON body\"}"
+            );
         }
-
-        for (Salle s : salles) {
-            if (s.getId() == id) {
-                s.setNom(nom);
-                s.setCapacite(capacite);
-
-                response.setContentType("application/json");
-                response.getWriter().print(
-                    "{"
-                    + "\"success\": true,"
-                    + "\"message\": \"Salle updated successfully\""
-                    + "}"
-                );
-                return;
-            }
-        }
-
-        response.setStatus(404);
-        response.getWriter().print(
-            "{"
-            + "\"success\": false,"
-            + "\"message\": \"Salle not found\""
-            + "}"
-        );
     }
 
     // ================= DELETE =================
@@ -137,30 +132,42 @@ public class SalleApi extends HttpServlet {
 
         if (!SecurityUtil.checkAdmin(request, response)) return;
 
-        int id = Integer.parseInt(request.getParameter("id"));
-
-        salles.removeIf(s -> s.getId() == id);
-
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
-        response.getWriter().print(
-            "{"
-            + "\"success\": true,"
-            + "\"message\": \"Salle deleted successfully\""
-            + "}"
-        );
-    }
-    
-    private String getBody(HttpServletRequest request) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        String line;
-        try (var reader = request.getReader()) {
-            while ((line = reader.readLine()) != null) {
-                sb.append(line);
+        try {
+            JSONObject json = readJson(request);
+            int id = json.getInt("id");
+
+            boolean removed = salles.removeIf(s -> s.getId() == id);
+
+            if (removed) {
+                response.getWriter().print(
+                    "{\"success\":true,\"message\":\"Salle deleted successfully\"}"
+                );
+            } else {
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                response.getWriter().print(
+                    "{\"success\":false,\"message\":\"Salle not found\"}"
+                );
             }
+
+        } catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            response.getWriter().print(
+                "{\"success\":false,\"message\":\"Invalid JSON body\"}"
+            );
         }
-        return sb.toString();
     }
 
+    // ================= UTILITY =================
+    private JSONObject readJson(HttpServletRequest request) throws Exception {
+        StringBuilder body = new StringBuilder();
+        String line;
+        BufferedReader reader = request.getReader();
+        while ((line = reader.readLine()) != null) {
+            body.append(line);
+        }
+        return new JSONObject(body.toString());
+    }
 }
