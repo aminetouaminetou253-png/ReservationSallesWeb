@@ -1,36 +1,27 @@
 package com.app.security;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import com.app.model.User;
+import jakarta.servlet.http.*;
 import java.io.IOException;
 
 public class SecurityUtil {
 
-    public static boolean checkAdmin(HttpServletRequest request, HttpServletResponse response)
+    public static boolean checkRole(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    String requiredRole)
             throws IOException {
 
-        String role = request.getHeader("X-ROLE");
+        HttpSession session = request.getSession(false);
 
-        if (role == null) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().print(
-                "{"
-                 + "\"success\": false,"
-                 + "\"message\": \"Missing role header\""
-              + "}"
-            );
+        if (session == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
             return false;
         }
 
-        if (!role.equalsIgnoreCase("ADMIN")) {
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            response.getWriter().print(
-                "{"
-                  + "\"success\": false,"
-                  + "\"message\": \"Access denied\""
-                 
-                +"}"
-            );
+        User user = (User) session.getAttribute("user");
+
+        if (user == null || !user.getRole().equals(requiredRole)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return false;
         }
 

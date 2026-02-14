@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<web-app
-    xmlns="https://jakarta.ee/xml/ns/jakartaee"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="
-        https://jakarta.ee/xml/ns/jakartaee
-        https://jakarta.ee/xml/ns/jakartaee/web-app_5_0.xsd"
-    version="5.0">
-
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="https://jakarta.ee/xml/ns/jakartaee" xmlns:web="http://xmlns.jcp.org/xml/ns/javaee" xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_5_0.xsd" version="5.0">
+  <servlet>
+    <description></description>
+    <display-name>LogoutApi</display-name>
+    <servlet-name>LogoutApi</servlet-name>
+    <servlet-class>com.app.controller.LogoutApi</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>LogoutApi</servlet-name>
+    <url-pattern>/LogoutApi</url-pattern>
+  </servlet-mapping>
 </web-app>

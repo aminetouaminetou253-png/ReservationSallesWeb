@@ -57,7 +57,7 @@ public class SalleApi extends HttpServlet {
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        if (!SecurityUtil.checkAdmin(request, response)) return;
+    	if (!SecurityUtil.checkRole(request, response, "ADMIN")) return;
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
@@ -88,7 +88,8 @@ public class SalleApi extends HttpServlet {
     protected void doPut(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        if (!SecurityUtil.checkAdmin(request, response)) return;
+    	if (!SecurityUtil.checkRole(request, response, "ADMIN")) return;
+
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
@@ -130,7 +131,8 @@ public class SalleApi extends HttpServlet {
     protected void doDelete(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        if (!SecurityUtil.checkAdmin(request, response)) return;
+    	if (!SecurityUtil.checkRole(request, response, "ADMIN")) return;
+
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");

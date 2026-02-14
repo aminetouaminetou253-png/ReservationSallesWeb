@@ -1,21 +1,19 @@
 package com.app.controller;
 
-import java.io.IOException;
+import com.app.data.UserData;
+import com.app.model.User;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.*;
 
-import com.app.data.UserData;
-import com.app.model.User;
+import java.io.IOException;
 
 @WebServlet("/api/login")
 public class LoginApi extends HttpServlet {
 
-    @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+    protected void doPost(HttpServletRequest request,
+                          HttpServletResponse response)
             throws ServletException, IOException {
 
         response.setContentType("application/json");
@@ -24,42 +22,24 @@ public class LoginApi extends HttpServlet {
         String username = request.getParameter("username");
         String password = request.getParameter("password");
 
-        // 1️⃣ Vérification des champs
-        if (username == null || password == null ||
-            username.isEmpty() || password.isEmpty()) {
-
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().print(
-                "{"
-              + "\"success\": false,"
-              + "\"message\": \"username and password are required\""
-              + "}"
-            );
-            return; // ⭐ IMPORTANT
-        }
-
         User user = UserData.findByUsernameAndPassword(username, password);
 
-        // 2️⃣ Mauvais login
         if (user == null) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.getWriter().print(
-                "{"
-              + "\"success\": false,"
-              + "\"message\": \"Invalid credentials\""
-              + "}"
+                    "{\"success\":false,\"message\":\"Invalid credentials\"}"
             );
+            return;
         }
-        // 3️⃣ Login OK
-        else {
-            response.setStatus(HttpServletResponse.SC_OK);
-            response.getWriter().print(
+
+        request.getSession().setAttribute("user", user);
+
+        response.getWriter().print(
                 "{"
-              + "\"success\": true,"
-              + "\"username\": \"" + user.getUsername() + "\","
-              + "\"role\": \"" + user.getRole() + "\""
-              + "}"
-            );
-        }
+                        + "\"success\":true,"
+                        + "\"username\":\"" + user.getUsername() + "\","
+                        + "\"role\":\"" + user.getRole() + "\""
+                        + "}"
+        );
     }
 }
