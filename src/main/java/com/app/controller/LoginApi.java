@@ -1,6 +1,8 @@
 package com.app.controller;
 
 import com.app.data.UserData;
+import org.json.JSONObject;
+
 import com.app.model.User;
 
 import jakarta.servlet.ServletException;
@@ -19,8 +21,12 @@ public class LoginApi extends HttpServlet {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
-        String username = request.getParameter("username");
-        String password = request.getParameter("password");
+        String body = request.getReader().lines().reduce("", String::concat);
+        JSONObject json = new JSONObject(body);
+
+        String username = json.getString("username");
+        String password = json.getString("password");
+
 
         User user = UserData.findByUsernameAndPassword(username, password);
 

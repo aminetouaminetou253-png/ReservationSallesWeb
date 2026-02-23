@@ -31,7 +31,6 @@ public class ReservationApi extends HttpServlet {
                 "VALIDEE", 300));
     }
 
-
     // ================= GET =================
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -55,9 +54,9 @@ public class ReservationApi extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
 
         StringBuilder json = new StringBuilder("[");
+        boolean first = true;
 
-        for (int i = 0; i < reservations.size(); i++) {
-            Reservation r = reservations.get(i);
+        for (Reservation r : reservations) {
 
             // CLIENT يرى فقط حجوزه
             if (user.getRole().equals("CLIENT") &&
@@ -65,13 +64,14 @@ public class ReservationApi extends HttpServlet {
                 continue;
             }
 
-            json.append(String.format(
-                    "{\"id\":%d,\"salleId\":%d,\"nomClient\":\"%s\",\"date\":\"%s\",\"statut\":\"%s\"}",
-                    r.getId(), r.getSalleId(), r.getNomClient(),
-                    r.getDate(), r.getStatut()
-            ));
+            if (!first) json.append(",");
+            first = false;
 
-            if (i < reservations.size() - 1) json.append(",");
+            json.append(String.format(
+                    "{\"id\":%d,\"salleId\":%d,\"nomClient\":\"%s\",\"date\":\"%s\",\"statut\":\"%s\",\"cout\":%.2f}",
+                    r.getId(), r.getSalleId(), r.getNomClient(),
+                    r.getDate(), r.getStatut(), r.getCoutTotal()
+            ));
         }
 
         json.append("]");
@@ -86,64 +86,73 @@ public class ReservationApi extends HttpServlet {
 
         if (!SecurityUtil.checkRole(request, response, "CLIENT")) return;
 
-        int id = Integer.parseInt(request.getParameter("id"));
-        int salleId = Integer.parseInt(request.getParameter("salleId"));
-        String nomClient = request.getParameter("nomClient");
-        String date = request.getParameter("date");
-        int duree = Integer.parseInt(request.getParameter("duree"));
+        response.setContentType("application/json");
 
-        // 🔴 Règle 1 : Date future
-        if (LocalDate.parse(date).isBefore(LocalDate.now())) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
-                    "Date must be in the future");
-            return;
-        }
+        try {
+            JSONObject json = readJson(request);
 
-        // 🔴 Règle 2 : Durée max 8h
-        if (duree > 8) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
-                    "Reservation cannot exceed 8 hours");
-            return;
-        }
+            int id = json.getInt("id");
+            int salleId = json.getInt("salleId");
+            String nomClient = json.getString("nomClient");
+            String date = json.getString("date");
+            int duree = json.getInt("duree");
 
-        // 🔴 Règle 3 : Disponibilité simple (même jour + salle)
-        for (Reservation r : reservations) {
-            if (r.getSalleId() == salleId &&
-                r.getDate().equals(date)) {
-
-                response.sendError(HttpServletResponse.SC_CONFLICT,
-                        "Salle already reserved");
+            // 🔴 Date future
+            if (LocalDate.parse(date).isBefore(LocalDate.now())) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                        "Date must be in the future");
                 return;
             }
+
+            // 🔴 Durée max 8h
+            if (duree > 8) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                        "Reservation cannot exceed 8 hours");
+                return;
+            }
+
+            // 🔴 Disponibilité
+            for (Reservation r : reservations) {
+                if (r.getSalleId() == salleId &&
+                    r.getDate().equals(date)) {
+
+                    response.sendError(HttpServletResponse.SC_CONFLICT,
+                            "Salle already reserved");
+                    return;
+                }
+            }
+
+            double cout = duree * 100;
+
+            reservations.add(new Reservation(
+                    id, salleId, nomClient,
+                    date, duree,
+                    "EN_ATTENTE", cout
+            ));
+
+            response.getWriter().print(
+                    "{\"success\":true,\"message\":\"Reservation created\",\"cout\":" + cout + "}"
+            );
+
+        } catch (Exception e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                    "Invalid JSON body");
         }
-
-        // 🔴 Calcul coût (exemple 100€/heure)
-        double cout = duree * 100;
-
-        reservations.add(new Reservation(
-                id, salleId, nomClient,
-                date, duree,
-                "EN_ATTENTE", cout
-        ));
-
-        response.setContentType("application/json");
-        response.getWriter().print(
-                "{\"success\":true,\"message\":\"Reservation created\",\"cout\":" + cout + "}"
-        );
     }
 
-
-    // ================= PUT (GESTIONNAIRE valide/refuse) =================
+    // ================= PUT (GESTIONNAIRE) =================
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
         if (!SecurityUtil.checkRole(request, response, "GESTIONNAIRE")) return;
 
+        response.setContentType("application/json");
+
         JSONObject json = readJson(request);
 
         int id = json.getInt("id");
-        String statut = json.getString("statut"); // VALIDEE / REFUSEE
+        String statut = json.getString("statut");
 
         for (Reservation r : reservations) {
             if (r.getId() == id) {
@@ -167,6 +176,8 @@ public class ReservationApi extends HttpServlet {
 
         if (!SecurityUtil.checkRole(request, response, "CLIENT")) return;
 
+        response.setContentType("application/json");
+
         JSONObject json = readJson(request);
         int id = json.getInt("id");
 
@@ -176,7 +187,7 @@ public class ReservationApi extends HttpServlet {
 
                 LocalDate reservationDate = LocalDate.parse(r.getDate());
 
-                // 🔴 Règle 24h
+                // 🔴 règle 24h
                 if (reservationDate.minusDays(1).isBefore(LocalDate.now())) {
                     response.sendError(HttpServletResponse.SC_BAD_REQUEST,
                             "Cannot cancel less than 24h before");
@@ -194,8 +205,8 @@ public class ReservationApi extends HttpServlet {
 
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
     }
-    
- // ================= UTIL =================
+
+    // ================= UTIL =================
     private JSONObject readJson(HttpServletRequest request) throws IOException {
 
         StringBuilder body = new StringBuilder();
@@ -208,6 +219,4 @@ public class ReservationApi extends HttpServlet {
 
         return new JSONObject(body.toString());
     }
-
-
 }

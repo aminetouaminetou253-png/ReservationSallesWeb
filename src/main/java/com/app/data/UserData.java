@@ -6,6 +6,10 @@ public class UserData {
 
     public static User findByUsernameAndPassword(String username, String password) {
 
+    	if (username == null || password == null) {
+    	    return null;
+    	}
+
     	if (username.equals("admin") && password.equals("admin")) {
     	    return new User("admin", "ADMIN");
     	}

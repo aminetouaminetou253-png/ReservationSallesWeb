@@ -12,16 +12,11 @@ import org.json.JSONObject;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.*;
 
 @WebServlet("/api/salles")
 public class SalleApi extends HttpServlet {
 
-    private static final long serialVersionUID = 1L;
-
-    // 🔴 stockage temporaire
     private static final List<Salle> salles = new ArrayList<>();
 
     static {
@@ -39,28 +34,30 @@ public class SalleApi extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
 
         StringBuilder json = new StringBuilder("[");
-        for (int i = 0; i < salles.size(); i++) {
-            Salle s = salles.get(i);
-            json.append(String.format(
-                "{\"id\":%d,\"nom\":\"%s\",\"capacite\":%d}",
-                s.getId(), s.getNom(), s.getCapacite()
-            ));
-            if (i < salles.size() - 1) json.append(",");
-        }
-        json.append("]");
+        boolean first = true;
 
+        for (Salle s : salles) {
+            if (!first) json.append(",");
+            first = false;
+
+            json.append(String.format(
+                    "{\"id\":%d,\"nom\":\"%s\",\"capacite\":%d}",
+                    s.getId(), s.getNom(), s.getCapacite()
+            ));
+        }
+
+        json.append("]");
         response.getWriter().print(json.toString());
     }
 
-    // ================= POST =================
+    // ================= POST (ADMIN) =================
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-    	if (!SecurityUtil.checkRole(request, response, "ADMIN")) return;
+        if (!SecurityUtil.checkRole(request, response, "ADMIN")) return;
 
         response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
 
         try {
             JSONObject json = readJson(request);
@@ -72,27 +69,23 @@ public class SalleApi extends HttpServlet {
             salles.add(new Salle(id, nom, capacite));
 
             response.getWriter().print(
-                "{\"success\":true,\"message\":\"Salle added successfully\"}"
+                    "{\"success\":true,\"message\":\"Salle ajoutée avec succès\"}"
             );
 
         } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().print(
-                "{\"success\":false,\"message\":\"Invalid JSON body\"}"
-            );
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                    "JSON invalide");
         }
     }
 
-    // ================= PUT =================
+    // ================= PUT (ADMIN) =================
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-    	if (!SecurityUtil.checkRole(request, response, "ADMIN")) return;
-
+        if (!SecurityUtil.checkRole(request, response, "ADMIN")) return;
 
         response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
 
         try {
             JSONObject json = readJson(request);
@@ -107,35 +100,29 @@ public class SalleApi extends HttpServlet {
                     s.setCapacite(capacite);
 
                     response.getWriter().print(
-                        "{\"success\":true,\"message\":\"Salle updated successfully\"}"
+                            "{\"success\":true,\"message\":\"Salle mise à jour\"}"
                     );
                     return;
                 }
             }
 
-            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            response.getWriter().print(
-                "{\"success\":false,\"message\":\"Salle not found\"}"
-            );
+            response.sendError(HttpServletResponse.SC_NOT_FOUND,
+                    "Salle non trouvée");
 
         } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().print(
-                "{\"success\":false,\"message\":\"Invalid JSON body\"}"
-            );
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                    "JSON invalide");
         }
     }
 
-    // ================= DELETE =================
+    // ================= DELETE (ADMIN) =================
     @Override
     protected void doDelete(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-    	if (!SecurityUtil.checkRole(request, response, "ADMIN")) return;
-
+        if (!SecurityUtil.checkRole(request, response, "ADMIN")) return;
 
         response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
 
         try {
             JSONObject json = readJson(request);
@@ -145,31 +132,30 @@ public class SalleApi extends HttpServlet {
 
             if (removed) {
                 response.getWriter().print(
-                    "{\"success\":true,\"message\":\"Salle deleted successfully\"}"
+                        "{\"success\":true,\"message\":\"Salle supprimée\"}"
                 );
             } else {
-                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-                response.getWriter().print(
-                    "{\"success\":false,\"message\":\"Salle not found\"}"
-                );
+                response.sendError(HttpServletResponse.SC_NOT_FOUND,
+                        "Salle non trouvée");
             }
 
         } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().print(
-                "{\"success\":false,\"message\":\"Invalid JSON body\"}"
-            );
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                    "JSON invalide");
         }
     }
 
-    // ================= UTILITY =================
-    private JSONObject readJson(HttpServletRequest request) throws Exception {
+    // ================= UTIL =================
+    private JSONObject readJson(HttpServletRequest request) throws IOException {
+
         StringBuilder body = new StringBuilder();
         String line;
+
         BufferedReader reader = request.getReader();
         while ((line = reader.readLine()) != null) {
             body.append(line);
         }
+
         return new JSONObject(body.toString());
     }
 }
