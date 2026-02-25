@@ -24,6 +24,14 @@ public class AuthFilter implements Filter {
 
         String path = req.getRequestURI();
 
+     // السماح بدون تسجيل الدخول
+     if (path.contains("/api/login") || path.contains("/api/register")) {
+         chain.doFilter(request, response);
+         return;
+     }
+
+     
+
         // السماح بتسجيل الدخول
         if (path.contains("/login")) {
             chain.doFilter(request, response);

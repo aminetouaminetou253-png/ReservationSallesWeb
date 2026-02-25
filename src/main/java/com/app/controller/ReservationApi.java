@@ -4,9 +4,10 @@ import com.app.model.Reservation;
 import com.app.model.User;
 import com.app.security.SecurityUtil;
 
-import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
+
+import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -14,64 +15,49 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.json.JSONObject;
-
 @WebServlet("/api/reservations")
 public class ReservationApi extends HttpServlet {
 
-    private static final List<Reservation> reservations = new ArrayList<>();
+    public static final List<Reservation> reservations = new ArrayList<>();
+    private static int idCounter = 1;
 
-    static {
-        reservations.add(new Reservation(1, 1, "Ali",
-                "2026-02-01", 2,
-                "EN_ATTENTE", 200));
+    private JSONObject readJson(HttpServletRequest request) throws IOException {
+        BufferedReader reader = request.getReader();
+        StringBuilder body = new StringBuilder();
+        String line;
 
-        reservations.add(new Reservation(2, 2, "Sara",
-                "2026-02-05", 3,
-                "VALIDEE", 300));
+        while ((line = reader.readLine()) != null) {
+            body.append(line);
+        }
+        return new JSONObject(body.toString());
     }
 
     // ================= GET =================
-    @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+            throws IOException {
 
-        HttpSession session = request.getSession(false);
-
-        if (session == null) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
-            return;
-        }
-
-        User user = (User) session.getAttribute("user");
-
-        if (user == null) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN);
-            return;
-        }
+        User user = (User) request.getSession().getAttribute("user");
 
         response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
-
         StringBuilder json = new StringBuilder("[");
+
         boolean first = true;
 
         for (Reservation r : reservations) {
 
-            // CLIENT يرى فقط حجوزه
-            if (user.getRole().equals("CLIENT") &&
-                    !r.getNomClient().equals(user.getUsername())) {
-                continue;
-            }
+            if (user.getRole().equals("CLIENT")
+                    && !r.getClient().equals(user.getUsername())) continue;
 
             if (!first) json.append(",");
             first = false;
 
-            json.append(String.format(
-                    "{\"id\":%d,\"salleId\":%d,\"nomClient\":\"%s\",\"date\":\"%s\",\"statut\":\"%s\",\"cout\":%.2f}",
-                    r.getId(), r.getSalleId(), r.getNomClient(),
-                    r.getDate(), r.getStatut(), r.getCoutTotal()
-            ));
+            json.append("{")
+                .append("\"id\":").append(r.getId()).append(",")
+                .append("\"salleId\":").append(r.getSalleId()).append(",")
+                .append("\"date\":\"").append(r.getDate()).append("\",")
+                .append("\"statut\":\"").append(r.getStatut()).append("\",")
+                .append("\"cout\":").append(r.getCout())
+                .append("}");
         }
 
         json.append("]");
@@ -79,144 +65,107 @@ public class ReservationApi extends HttpServlet {
     }
 
     // ================= POST (CLIENT) =================
-    @Override
-    protected void doPost(HttpServletRequest request,
-                          HttpServletResponse response)
-            throws ServletException, IOException {
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
 
         if (!SecurityUtil.checkRole(request, response, "CLIENT")) return;
 
-        response.setContentType("application/json");
+        JSONObject json = readJson(request);
 
-        try {
-            JSONObject json = readJson(request);
+        int salleId = json.getInt("salleId");
+        String date = json.getString("date");
+        int duree = json.getInt("duree");
+        int nb = json.getInt("nbParticipants");
+        String services = json.getString("services");
 
-            int id = json.getInt("id");
-            int salleId = json.getInt("salleId");
-            String nomClient = json.getString("nomClient");
-            String date = json.getString("date");
-            int duree = json.getInt("duree");
-
-            // 🔴 Date future
-            if (LocalDate.parse(date).isBefore(LocalDate.now())) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST,
-                        "Date must be in the future");
-                return;
-            }
-
-            // 🔴 Durée max 8h
-            if (duree > 8) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST,
-                        "Reservation cannot exceed 8 hours");
-                return;
-            }
-
-            // 🔴 Disponibilité
-            for (Reservation r : reservations) {
-                if (r.getSalleId() == salleId &&
-                    r.getDate().equals(date)) {
-
-                    response.sendError(HttpServletResponse.SC_CONFLICT,
-                            "Salle already reserved");
-                    return;
-                }
-            }
-
-            double cout = duree * 100;
-
-            reservations.add(new Reservation(
-                    id, salleId, nomClient,
-                    date, duree,
-                    "EN_ATTENTE", cout
-            ));
-
-            response.getWriter().print(
-                    "{\"success\":true,\"message\":\"Reservation created\",\"cout\":" + cout + "}"
-            );
-
-        } catch (Exception e) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
-                    "Invalid JSON body");
+        if (LocalDate.parse(date).isBefore(LocalDate.now())) {
+            response.sendError(400, "Date invalide");
+            return;
         }
+
+        for (Reservation r : reservations) {
+            if (r.getSalleId() == salleId && r.getDate().equals(date)) {
+                response.sendError(409, "Salle déjà réservée");
+                return;
+            }
+        }
+
+        double cout = duree * 100; // prix simple
+
+     // تكلفة الخدمات
+     if (services.equalsIgnoreCase("cafe")) {
+         cout += 20;
+     }
+     else if (services.equalsIgnoreCase("traiteur")) {
+         cout += 50;
+     }
+     else if (services.equalsIgnoreCase("vip")) {
+         cout += 100;
+     }
+
+        User user = (User) request.getSession().getAttribute("user");
+
+        reservations.add(new Reservation(
+                idCounter++, salleId, user.getUsername(),
+                date, duree, nb, services,
+                "EN_ATTENTE", cout
+        ));
+
+        response.getWriter().print("{\"success\":true,\"cout\":" + cout + "}");
     }
 
-    // ================= PUT (GESTIONNAIRE) =================
-    @Override
+    // ================= PUT (MANAGER) =================
     protected void doPut(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+            throws IOException {
 
         if (!SecurityUtil.checkRole(request, response, "GESTIONNAIRE")) return;
 
-        response.setContentType("application/json");
-
         JSONObject json = readJson(request);
-
         int id = json.getInt("id");
         String statut = json.getString("statut");
 
         for (Reservation r : reservations) {
             if (r.getId() == id) {
                 r.setStatut(statut);
-
-                response.getWriter().print(
-                        "{\"success\":true,\"message\":\"Reservation updated\"}"
-                );
+                response.getWriter().print("{\"success\":true}");
                 return;
             }
         }
 
-        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+        response.sendError(404, "Reservation non trouvée");
     }
 
     // ================= DELETE (CLIENT) =================
     @Override
-    protected void doDelete(HttpServletRequest request,
-                            HttpServletResponse response)
-            throws ServletException, IOException {
+    protected void doDelete(HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
 
         if (!SecurityUtil.checkRole(request, response, "CLIENT")) return;
-
-        response.setContentType("application/json");
 
         JSONObject json = readJson(request);
         int id = json.getInt("id");
 
+        User user = (User) request.getSession().getAttribute("user");
+
         for (Reservation r : reservations) {
 
-            if (r.getId() == id) {
+            if (r.getId() == id && r.getClient().equals(user.getUsername())) {
 
                 LocalDate reservationDate = LocalDate.parse(r.getDate());
 
-                // 🔴 règle 24h
-                if (reservationDate.minusDays(1).isBefore(LocalDate.now())) {
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST,
-                            "Cannot cancel less than 24h before");
+                // ❌ منع الإلغاء قبل 24 ساعة
+                if (!LocalDate.now().isBefore(reservationDate.minusDays(1))) {
+                    response.sendError(400,
+                            "Impossible d'annuler moins de 24h avant la réservation");
                     return;
                 }
 
                 reservations.remove(r);
-
-                response.getWriter().print(
-                        "{\"success\":true,\"message\":\"Reservation cancelled\"}"
-                );
+                response.getWriter().print("{\"success\":true,\"message\":\"Reservation annulée\"}");
                 return;
             }
         }
 
-        response.sendError(HttpServletResponse.SC_NOT_FOUND);
-    }
-
-    // ================= UTIL =================
-    private JSONObject readJson(HttpServletRequest request) throws IOException {
-
-        StringBuilder body = new StringBuilder();
-        String line;
-
-        BufferedReader reader = request.getReader();
-        while ((line = reader.readLine()) != null) {
-            body.append(line);
-        }
-
-        return new JSONObject(body.toString());
+        response.sendError(404, "Reservation non trouvée");
     }
 }

@@ -30,4 +30,34 @@
     <servlet-name>RoleFilter</servlet-name>
     <url-pattern>/RoleFilter</url-pattern>
   </servlet-mapping>
+  <servlet>
+    <description></description>
+    <display-name>RegisterApi</display-name>
+    <servlet-name>RegisterApi</servlet-name>
+    <servlet-class>com.app.controller.RegisterApi</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>RegisterApi</servlet-name>
+    <url-pattern>/RegisterApi</url-pattern>
+  </servlet-mapping>
+  <servlet>
+    <description></description>
+    <display-name>ManagerApi</display-name>
+    <servlet-name>ManagerApi</servlet-name>
+    <servlet-class>com.app.controller.ManagerApi</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>ManagerApi</servlet-name>
+    <url-pattern>/ManagerApi</url-pattern>
+  </servlet-mapping>
+  <servlet>
+    <description></description>
+    <display-name>ReportApi</display-name>
+    <servlet-name>ReportApi</servlet-name>
+    <servlet-class>com.app.controller.ReportApi</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>ReportApi</servlet-name>
+    <url-pattern>/ReportApi</url-pattern>
+  </servlet-mapping>
 </web-app>

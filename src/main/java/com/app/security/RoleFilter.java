@@ -1,7 +1,6 @@
 package com.app.security;
 
 import com.app.model.User;
-
 import jakarta.servlet.*;
 import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.http.*;
@@ -23,24 +22,25 @@ public class RoleFilter implements Filter {
         String path = req.getRequestURI();
         String method = req.getMethod();
 
-        // السماح بتسجيل الدخول
-        if (path.contains("/login")) {
+        // ✅ السماح بدون تسجيل دخول
+        if (path.contains("/login") || path.contains("/register")) {
             chain.doFilter(request, response);
             return;
         }
 
         HttpSession session = req.getSession(false);
-        User user = (User) session.getAttribute("user");
 
-        if (user == null) {
+        // ✅ التحقق من session
+        if (session == null || session.getAttribute("user") == null) {
             res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Login required");
             return;
         }
 
+        User user = (User) session.getAttribute("user");
         String role = user.getRole();
 
         // ===== SALLES =====
-        if (path.contains("/salles")) {
+        if (path.contains("/salle")) {
 
             if (method.equals("GET")) {
                 chain.doFilter(request, response);
@@ -69,7 +69,7 @@ public class RoleFilter implements Filter {
                 return;
             }
 
-            // GESTIONNAIRE يصادق
+            // GESTIONNAIRE يصادق أو يرفض
             if (method.equals("PUT") && role.equals("GESTIONNAIRE")) {
                 chain.doFilter(request, response);
                 return;
